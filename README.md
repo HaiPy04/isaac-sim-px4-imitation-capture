@@ -110,7 +110,7 @@ In this stack, PX4's native **uXRCE-DDS client** communicates directly with **`M
 ### 2. Conda (Python 3.11) Subshell Isolation vs. Host ROS 2 (Python 3.10)
 NVIDIA Isaac Sim 5.1 runs on Python 3.11 with custom compiled C++ binaries, glibc hooks, and CUDA runtimes. Sourcing ROS 2 Humble (built against Python 3.10) inside the same environment causes immediate ABI collisions, corrupting `rclpy`, `pybind11`, and FastDDS dynamic shared libraries (`libfastrtps.so`).
 
-[`scripts/run_sim_capture.sh`](file:///home/haipy/Desktop/isaac-sim-px4-imitation-capture/scripts/run_sim_capture.sh) enforces an explicit subshell barrier:
+[`scripts/run_sim_capture.sh`](scripts/run_sim_capture.sh) enforces an explicit subshell barrier:
 ```bash
 (
     eval "$(conda shell.bash hook)"
@@ -124,8 +124,8 @@ The Isaac Sim physics and rendering processes execute in isolation, while the ho
 Streaming live demonstration data directly into compressed HDF5 files during flight introduces filesystem I/O locks and unpredictable garbage-collection pauses into the simulation loop. 
 
 Instead, the pipeline separates data collection into two deterministic phases:
-1. **Live High-Throughput Ingestion:** [`scripts/record_episode.sh`](file:///home/haipy/Desktop/isaac-sim-px4-imitation-capture/scripts/record_episode.sh) captures serialized CDR buffers directly to disk using the **MCAP** storage plugin (`ros2 bag record --storage mcap`). MCAP provides zero-copy appending, self-contained message definitions, and chunked indexing.
-2. **Offline Resampling & Segmentation:** [`scripts/bag_to_hdf5.py`](file:///home/haipy/Desktop/isaac-sim-px4-imitation-capture/scripts/bag_to_hdf5.py) executes offline to linearly interpolate odometry (\(\sim 100\text{ Hz}\)) and actions (\(\sim 50\text{ Hz}\)) to a uniform \(50\text{ Hz}\) clock, segments active flight boundaries, and compresses trajectories into standardized HDF5 files for ACT / Diffusion Policy training.
+1. **Live High-Throughput Ingestion:** [`scripts/record_episode.sh`](scripts/record_episode.sh) captures serialized CDR buffers directly to disk using the **MCAP** storage plugin (`ros2 bag record --storage mcap`). MCAP provides zero-copy appending, self-contained message definitions, and chunked indexing.
+2. **Offline Resampling & Segmentation:** [`scripts/bag_to_hdf5.py`](scripts/bag_to_hdf5.py) executes offline to linearly interpolate odometry (\(\sim 100\text{ Hz}\)) and actions (\(\sim 50\text{ Hz}\)) to a uniform \(50\text{ Hz}\) clock, segments active flight boundaries, and compresses trajectories into standardized HDF5 files for ACT / Diffusion Policy training.
 
 ---
 
@@ -137,7 +137,7 @@ Instead, the pipeline separates data collection into two deterministic phases:
 - **ROS 2:** ROS 2 Humble Desktop (`ros-humble-desktop`, `ros-humble-joy`, `ros-humble-rosbag2-storage-mcap`)
 
 ### 2. Software Installation Paths
-Ensure the following components are installed at their verified paths or updated in [`configs/sim_config.yaml`](file:///home/haipy/Desktop/isaac-sim-px4-imitation-capture/configs/sim_config.yaml):
+Ensure the following components are installed at their verified paths or updated in [`configs/sim_config.yaml`](configs/sim_config.yaml):
 
 1. **NVIDIA Isaac Sim 5.1 + Pegasus Simulator v5.1.0:**
    Installed inside Conda environment `env_isaaclab` (Python 3.11):
@@ -178,7 +178,7 @@ Ensure the following components are installed at their verified paths or updated
 
 ## Flight Teleoperation Mapping (Mode 2)
 
-As specified in [`configs/xbox_joy_mapping.yaml`](file:///home/haipy/Desktop/isaac-sim-px4-imitation-capture/configs/xbox_joy_mapping.yaml), teleoperation follows standard aviation **Mode 2** RC stick layout:
+As specified in [`configs/xbox_joy_mapping.yaml`](configs/xbox_joy_mapping.yaml), teleoperation follows standard aviation **Mode 2** RC stick layout:
 
 | Axis / Button | Index | Controller Physical Input | Flight Axis / Action | Polarity & Range |
 | :--- | :---: | :--- | :--- | :--- |
@@ -255,7 +255,7 @@ dataset.h5
 
 ### 1. `PX4 server already running for instance 0`
 - **Cause:** A previous PX4 SITL process crashed or was terminated without freeing the POSIX shared memory locks (`/dev/shm/px4_*`) and TCP server port `4560`.
-- **Fix:** Both [`scripts/run_sim_capture.sh`](file:///home/haipy/Desktop/isaac-sim-px4-imitation-capture/scripts/run_sim_capture.sh) and the exit trap run:
+- **Fix:** Both [`scripts/run_sim_capture.sh`](scripts/run_sim_capture.sh) and the exit trap run:
   ```bash
   pkill -9 -x px4
   rm -f /dev/shm/px4_* /tmp/px4_*
@@ -264,12 +264,12 @@ dataset.h5
 ### 2. `Waiting for first heartbeat from simulator...`
 - **Cause:** PX4 SITL started before Isaac Sim opened TCP port `4560`, or PX4 was launched with a vehicle target expecting Gazebo / Lockstep UDP rather than Pegasus MAVLink TCP.
 - **Fix:**
-  - Verify [`scripts/pegasusLaunch.py`](file:///home/haipy/Desktop/isaac-sim-px4-imitation-capture/scripts/pegasusLaunch.py) sets `px4_autolaunch: True` and airframe model to `self.pg.px4_default_airframe`.
+  - Verify [`scripts/pegasusLaunch.py`](scripts/pegasusLaunch.py) sets `px4_autolaunch: True` and airframe model to `self.pg.px4_default_airframe`.
   - Ensure the target airframe is built with `DONT_RUN=1 make px4_sitl none_iris`.
 
 ### 3. Silent Zero-Message ROS 2 Bag Recordings
 - **Cause:** PX4 uXRCE-DDS topics publish under `RELIABILITY: BEST_EFFORT` and `DURABILITY: TRANSIENT_LOCAL`. Default `ros2 bag record` subscribers use `RELIABILITY: RELIABLE`. DDS drops incompatible QoS connections silently without warning.
-- **Fix:** [`scripts/record_episode.sh`](file:///home/haipy/Desktop/isaac-sim-px4-imitation-capture/scripts/record_episode.sh) automatically passes `--qos-profile-overrides-path /tmp/px4_bag_qos.yaml` containing:
+- **Fix:** [`scripts/record_episode.sh`](scripts/record_episode.sh) automatically passes `--qos-profile-overrides-path /tmp/px4_bag_qos.yaml` containing:
   ```yaml
   /fmu/out/vehicle_odometry:
     reliability: best_effort
