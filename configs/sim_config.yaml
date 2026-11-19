@@ -1,0 +1,134 @@
+# ==============================================================================
+# Master Simulation & Teleoperation Pipeline Configuration
+# NVIDIA Isaac Sim 5.1 + Pegasus Simulator v5.1.0 + PX4 SITL + ROS 2 Humble
+# ==============================================================================
+
+simulator:
+  engine: "NVIDIA Isaac Sim 5.1"
+  frontend: "Pegasus Simulator v5.1.0"
+  headless: false
+  environment:
+    name: "Warehouse"
+    usd_asset: "pegasus.simulator.params.SIMULATION_ENVIRONMENTS['Warehouse']"
+    description: "Industrial warehouse USD stage with realistic collision meshes and lighting"
+  physics:
+    physics_dt: 0.005      # 200 Hz physics simulation rate
+    rendering_dt: 0.01666  # 60 Hz rendering rate
+
+vehicle:
+  model: "Iris"
+  type: "multirotor"
+  usd_asset: "pegasus.simulator.params.ROBOTS['Iris']"
+  prim_path: "/World/quadrotor"
+  vehicle_id: 0
+  spawn_pose:
+    position_xyz: [0.0, 0.0, 0.07]  # [x, y, z] in meters (elevated slightly above ground floor)
+    orientation_euler_deg: [0.0, 0.0, 0.0]  # Roll, Pitch, Yaw in degrees
+    orientation_quat_xyzw: [0.0, 0.0, 0.0, 1.0]
+
+flight_stack:
+  autopilot: "PX4-Autopilot SITL"
+  version: "v1.14+"
+  target: "none_iris"
+  autostart_id: 10016     # PX4_SYS_AUTOSTART for standard quadrotor SITL
+  px4_dir: "/home/haipy/PX4-Autopilot"
+  px4_autolaunch: true
+  ground_control_station:
+    name: "QGroundControl"
+    binary_path: "/home/haipy/Desktop/PEGASUS_ISAACSIM/QGroundControl-x86_64.AppImage"
+
+networking:
+  mavlink_sitl_tcp:
+    host: "127.0.0.1"
+    port: 4560            # TCP port between Pegasus PX4MavlinkBackend and PX4 SITL
+    protocol: "TCP"
+  uxrce_dds_udp:
+    host: "127.0.0.1"
+    port: 8888            # UDP port between PX4 uXRCE-DDS client and MicroXRCEAgent
+    protocol: "UDP"
+
+runtime_environments:
+  isaac_sim:
+    conda_env: "env_isaaclab"
+    python_version: "3.11"
+    script_path: "scripts/pegasusLaunch.py"
+  ros2_flight_stack:
+    distro: "humble"
+    system_python: "3.10"
+    workspace_path: "/home/haipy/ros2_px4_ws"
+    orchestrator_script: "scripts/run_sim_capture.sh"
+
+ros2:
+  distro: "humble"
+  workspace: "/home/haipy/ros2_px4_ws"
+  nodes:
+    joy_node:
+      package: "joy"
+      executable: "joy_node"
+      publish_rate_hz: 50.0
+      deadzone: 0.05
+    uxrce_agent:
+      executable: "MicroXRCEAgent"
+      transport: "udp4"
+      port: 8888
+
+  topics:
+    # State observation s_t
+    vehicle_odometry:
+      topic: "/fmu/out/vehicle_odometry"
+      msg_type: "px4_msgs/msg/VehicleOdometry"
+      rate_hz: 100.0
+      role: "state_observation"
+      description: "Estimated body position, orientation quaternion, linear and angular velocities"
+      qos:
+        reliability: "best_effort"
+        durability: "transient_local"
+        history: "keep_last"
+        depth: 10
+
+    # Action a_t
+    manual_control_setpoint:
+      topic: "/fmu/out/manual_control_setpoint"
+      msg_type: "px4_msgs/msg/ManualControlSetpoint"
+      rate_hz: 50.0
+      role: "action"
+      description: "PX4 deadzone-filtered normalized manual control setpoint (roll, pitch, yaw, throttle)"
+      qos:
+        reliability: "best_effort"
+        durability: "transient_local"
+        history: "keep_last"
+        depth: 10
+
+    # Arming & navigation mode
+    vehicle_status:
+      topic: "/fmu/out/vehicle_status_v1"
+      msg_type: "px4_msgs/msg/VehicleStatus"
+      rate_hz: 10.0
+      role: "flight_status"
+      description: "PX4 flight mode, arming state, navigation state for episode segmentation"
+      qos:
+        reliability: "best_effort"
+        durability: "transient_local"
+        history: "keep_last"
+        depth: 10
+
+    # Raw controller telemetry & episode segmentation button
+    joy:
+      topic: "/joy"
+      msg_type: "sensor_msgs/msg/Joy"
+      rate_hz: 50.0
+      role: "teleop_controller"
+      description: "Raw Xbox gamepad axes and buttons (arm button index 6 triggers episode segmentation)"
+      qos:
+        reliability: "reliable"
+        durability: "volatile"
+        history: "keep_last"
+        depth: 10
+
+data_collection:
+  storage_format: "mcap"
+  raw_bags_dir: "data/raw_bags"
+  processed_hdf5_dir: "data/processed_hdf5"
+  recording_script: "scripts/record_episode.sh"
+  conversion_script: "scripts/bag_to_hdf5.py"
+  qos_profile_path: "/tmp/px4_bag_qos.yaml"

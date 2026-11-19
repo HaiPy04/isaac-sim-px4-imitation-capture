@@ -1,0 +1,163 @@
+# ==============================================================================
+# Hardware-Verified Xbox Controller Mapping (Mode 2) for PX4 Teleoperation
+# Compatible with ROS 2 joy_node and PX4 SITL Teleoperation Pipeline
+# ==============================================================================
+
+controller:
+  model: "Microsoft Xbox Wireless / Wired Controller"
+  flight_mode: "Mode 2"  # Left Stick: Throttle/Yaw, Right Stick: Pitch/Roll
+  vendor_id: "0x045e"
+  deadzone: 0.05         # 5% deadzone applied at joy_node level to eliminate stick drift
+  publish_rate_hz: 50.0  # Continuous fixed-rate telemetry rate (Hz)
+
+# ------------------------------------------------------------------------------
+# Axes Configuration (Normalized range [-1.0, 1.0])
+# ------------------------------------------------------------------------------
+axes:
+  # Mode 2: Left Stick Horizontal -> Yaw
+  yaw:
+    index: 0
+    description: "Left Stick Horizontal (Yaw Rate / Heading)"
+    polarity:
+      left: +1.0         # Positive value turns drone counter-clockwise (Yaw Left)
+      right: -1.0        # Negative value turns drone clockwise (Yaw Right)
+    unit: "normalized [-1.0, +1.0]"
+    active: true
+
+  # Mode 2: Left Stick Vertical -> Throttle
+  throttle:
+    index: 1
+    description: "Left Stick Vertical (Collective Thrust / Altitude Rate)"
+    polarity:
+      up: +1.0           # Positive value commands climb / increased thrust
+      down: -1.0         # Negative value commands descent / reduced thrust
+    unit: "normalized [-1.0, +1.0]"
+    active: true
+
+  # Left Trigger (Analog)
+  lt_trigger:
+    index: 2
+    description: "Left Trigger (LT) Analog Axis"
+    unit: "normalized [-1.0, +1.0]"
+    active: false
+
+  # Mode 2: Right Stick Horizontal -> Roll
+  roll:
+    index: 3
+    description: "Right Stick Horizontal (Roll Angle / Lateral Velocity)"
+    polarity:
+      left: +1.0         # Positive value rolls drone left (port)
+      right: -1.0        # Negative value rolls drone right (starboard)
+    unit: "normalized [-1.0, +1.0]"
+    active: true
+
+  # Mode 2: Right Stick Vertical -> Pitch
+  pitch:
+    index: 4
+    description: "Right Stick Vertical (Pitch Angle / Longitudinal Velocity)"
+    polarity:
+      up: +1.0           # Positive value pitches drone forward (nose down / forward acceleration)
+      down: -1.0         # Negative value pitches drone backward (nose up / reverse acceleration)
+    unit: "normalized [-1.0, +1.0]"
+    active: true
+
+  # Right Trigger (Analog)
+  rt_trigger:
+    index: 5
+    description: "Right Trigger (RT) Analog Axis"
+    unit: "normalized [-1.0, +1.0]"
+    active: false
+
+  # D-Pad Horizontal
+  dpad_x:
+    index: 6
+    description: "D-Pad Horizontal Axis"
+    unit: "discrete {-1.0, 0.0, +1.0}"
+    active: false
+
+  # D-Pad Vertical
+  dpad_y:
+    index: 7
+    description: "D-Pad Vertical Axis"
+    unit: "discrete {-1.0, 0.0, +1.0}"
+    active: false
+
+# ------------------------------------------------------------------------------
+# Buttons Configuration (Binary discrete {0, 1})
+# ------------------------------------------------------------------------------
+buttons:
+  a_btn:
+    index: 0
+    description: "A Button (Bottom Face)"
+    active: false
+
+  b_btn:
+    index: 1
+    description: "B Button (Right Face)"
+    active: false
+
+  x_btn:
+    index: 2
+    description: "X Button (Left Face)"
+    active: false
+
+  y_btn:
+    index: 3
+    description: "Y Button (Top Face)"
+    active: false
+
+  lb_btn:
+    index: 4
+    description: "Left Bumper (LB)"
+    active: false
+
+  rb_btn:
+    index: 5
+    description: "Right Bumper (RB)"
+    active: false
+
+  arm_toggle:
+    index: 6
+    description: "Back / View Button (Dedicated Arm/Disarm Toggle & Episode Boundary Trigger)"
+    behavior: "toggle"   # Used by imitation learning pipeline to segment flight episodes
+    active: true
+
+  start_btn:
+    index: 7
+    description: "Start / Menu Button"
+    active: false
+
+  guide_btn:
+    index: 8
+    description: "Xbox / Guide Button"
+    active: false
+
+  ls_click:
+    index: 9
+    description: "Left Stick Click (L3)"
+    active: false
+
+  rs_click:
+    index: 10
+    description: "Right Stick Click (R3)"
+    active: false
+
+# ------------------------------------------------------------------------------
+# Downstream PX4 & ROS 2 Mapping Reference
+# ------------------------------------------------------------------------------
+ros2_joy_node:
+  package: "joy"
+  executable: "joy_node"
+  parameters:
+    deadzone: 0.05
+    autorepeat_rate: 50.0
+    coalesce_interval_ms: 1
+
+px4_manual_control_setpoint:
+  topic: "/fmu/out/manual_control_setpoint"
+  message_type: "px4_msgs/msg/ManualControlSetpoint"
+  fields:
+    roll: "axes[3]"       # [-1.0, +1.0]
+    pitch: "axes[4]"      # [-1.0, +1.0]
+    yaw: "axes[0]"        # [-1.0, +1.0]
+    throttle: "axes[1]"   # [0.0, 1.0] rescaled from [-1.0, +1.0]

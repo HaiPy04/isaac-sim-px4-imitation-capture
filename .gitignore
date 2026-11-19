@@ -1,0 +1,15 @@
+# Large telemetry & ML dataset files
+data/raw_bags/*
+!data/raw_bags/.gitkeep
+data/processed_hdf5/*
+!data/processed_hdf5/.gitkeep
+*.mcap
+*.db3
+*.h5
+*.hdf5
+
+# Python & logs
+__pycache__/
+*.py[cod]
+*.log
+.DS_Store
